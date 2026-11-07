@@ -180,7 +180,10 @@ export async function scrapePlayerDetails(page, basicPlayer) {
       const badgeElements = document.querySelectorAll('.badge-count');
 
       badgeElements.forEach(el => {
-        const title = el.getAttribute('data-original-title') || '';
+        // 页面用的是 Bootstrap 5，属性是 title；旧版才是 data-original-title
+        const title = el.getAttribute('title')
+          || el.getAttribute('data-original-title')
+          || el.getAttribute('data-bs-title') || '';
         const value = parseInt(el.textContent.trim()) || 0;
 
         if (title.includes('Total')) badges.total = value;
@@ -202,22 +205,24 @@ export async function scrapePlayerDetails(page, basicPlayer) {
       for (const card of badgeCards) {
         const nameEl = card.querySelector('h4.text-white');
         const categoryEl = card.querySelector('.badge-pill');
-        const imgEl = card.querySelector('img[data-src*="badge"], img[src*="badge"]');
+        // 注意：img 的 src 全是 /wp-content/uploads/1x1.png 占位图，
+        // 真实徽章图在 data-src，且文件名形如 04-arc-cadence-hof.png（不含 "badge" 字样）
+        const imgEl = card.querySelector('img[data-src], img');
         const descEl = card.querySelector('.badge-description, p.description, [class*="desc"]');
 
         if (nameEl && imgEl) {
           const name = nameEl.textContent.trim();
           const category = categoryEl ? categoryEl.textContent.trim() : '';
-          const imgSrc = imgEl.getAttribute('data-src') || imgEl.src || '';
+          const imgSrc = imgEl.getAttribute('data-src') || imgEl.getAttribute('src') || '';
           const description = descEl ? descEl.textContent.trim() : '';
 
           // Extract tier from image filename
           let tier = '';
-          if (imgSrc.includes('-legendary-badge.png')) tier = 'Legendary';
-          else if (imgSrc.includes('-hof-badge.png')) tier = 'Hall of Fame';
-          else if (imgSrc.includes('-gold-badge.png')) tier = 'Gold';
-          else if (imgSrc.includes('-silver-badge.png')) tier = 'Silver';
-          else if (imgSrc.includes('-bronze-badge.png')) tier = 'Bronze';
+          if (/-legendary(-badge)?\.png/i.test(imgSrc)) tier = 'Legendary';
+          else if (/-hof(-badge)?\.png/i.test(imgSrc)) tier = 'Hall of Fame';
+          else if (/-gold(-badge)?\.png/i.test(imgSrc)) tier = 'Gold';
+          else if (/-silver(-badge)?\.png/i.test(imgSrc)) tier = 'Silver';
+          else if (/-bronze(-badge)?\.png/i.test(imgSrc)) tier = 'Bronze';
 
           if (name && tier) {
             const badgeKey = `${name.toLowerCase().trim()}|${tier.toLowerCase().trim()}`;
