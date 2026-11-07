@@ -146,12 +146,14 @@ async function upsertWithHistoryHelper(
   const now = new Date().toISOString();
   const gameVersion = args.gameVersion || CURRENT_GAME_VERSION;
 
-  // Check if player exists by slug, teamType, and team
+  // 按 slug + teamType 定位既有人物；**不带 team**。
+  // 原来连 team 一起匹配，球员一旦换队就查不到旧记录 → 插入新文档，
+  // 老记录（旧球队）留在库里成为重复项（2026-11-07 因此多出 3 条）。
+  // 同一 slug 在同一种 teamType 下只应有一条，球队变化属于字段更新。
   const existing = await ctx.db
     .query("players")
     .withIndex("by_slug", (q) => q.eq("slug", args.slug))
     .filter((q) => q.eq(q.field("teamType"), args.teamType))
-    .filter((q) => q.eq(q.field("team"), args.team))
     .first();
 
   if (existing) {
