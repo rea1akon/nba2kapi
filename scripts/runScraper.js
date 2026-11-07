@@ -155,6 +155,23 @@ async function runScraper(options = {}) {
               // Remove playerMisc (not in schema)
               delete fullPlayer.playerMisc;
 
+              // 属性名统一成 camelCase（ThreePointShot → threePointShot）。
+              // 抓取器里有一份 attributeNameMap，但没覆盖到的项会原样保留 PascalCase，
+              // 结果是同一个人身上两种写法并存、按 threePointShot 查不到值。
+              if (fullPlayer.attributes && typeof fullPlayer.attributes === 'object') {
+                const normAttrs = {};
+                for (const [k, v] of Object.entries(fullPlayer.attributes)) {
+                  if (v === null || v === undefined) continue;
+                  const k2 = k ? k[0].toLowerCase() + k.slice(1) : k;
+                  if (k2 === 'overallDurability') continue;
+                  // 同名冲突时，已有驼峰值优先
+                  if (normAttrs[k2] === undefined || k[0] === k[0].toLowerCase()) {
+                    normAttrs[k2] = v;
+                  }
+                }
+                fullPlayer.attributes = normAttrs;
+              }
+
               // Upsert to Convex with history tracking
               const result = await client.mutation(api.playerHistory.adminUpsertPlayerWithHistory, {
                 adminKey: ADMIN_API_KEY,
