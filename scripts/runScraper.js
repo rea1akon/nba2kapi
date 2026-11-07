@@ -4,6 +4,7 @@
  */
 
 import fs from "fs";
+import { pathToFileURL } from 'node:url';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { CURRENT_GAME_VERSION } from "../convex/gameVersion.js";
@@ -13,7 +14,7 @@ import { initBrowser, createPage } from '../scraper/utils.js';
 
 // IMPORTANT: Scraper uses ConvexHttpClient which requires .convex.cloud domain
 // (NOT .convex.site which is for HTTP actions)
-const CONVEX_URL = process.env.CONVEX_URL || "https://canny-kingfisher-472.convex.cloud";
+const CONVEX_URL = process.env.CONVEX_URL || "https://friendly-parrot-83.convex.cloud";
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 
 // Diff of what this run actually touched, for targeted page revalidation.
@@ -298,7 +299,8 @@ async function runScraper(options = {}) {
 }
 
 // CLI support
-if (import.meta.url === `file://${process.argv[1]}`) {
+const __isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (__isMain) {
   const teamType = process.argv[2] || 'curr';
   const teamsArg = process.argv[3];
   const teams = teamsArg ? teamsArg.split(',') : null;

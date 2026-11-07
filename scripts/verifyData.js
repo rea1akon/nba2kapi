@@ -6,7 +6,7 @@
 import { ConvexHttpClient } from "convex/browser";
 
 // IMPORTANT: Uses ConvexHttpClient which requires .convex.cloud domain
-const CONVEX_URL = process.env.CONVEX_URL || "https://canny-kingfisher-472.convex.cloud";
+const CONVEX_URL = process.env.CONVEX_URL || "https://friendly-parrot-83.convex.cloud";
 
 async function verifyData() {
   const client = new ConvexHttpClient(CONVEX_URL);

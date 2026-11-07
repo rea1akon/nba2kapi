@@ -15,14 +15,14 @@
  * Used by: ConvexProvider, ConvexHttpClient in scripts
  */
 export const CONVEX_URL =
-  process.env.NEXT_PUBLIC_CONVEX_URL || "https://canny-kingfisher-472.convex.cloud";
+  process.env.NEXT_PUBLIC_CONVEX_URL || "https://friendly-parrot-83.convex.cloud";
 
 /**
  * CONVEX_SITE_URL - For HTTP Actions (REST API endpoints)
  * Used by: fetch() calls to /api/players, /api/register, etc.
  */
 export const CONVEX_SITE_URL =
-  process.env.NEXT_PUBLIC_CONVEX_SITE_URL || "https://canny-kingfisher-472.convex.site";
+  process.env.NEXT_PUBLIC_CONVEX_SITE_URL || "https://friendly-parrot-83.convex.site";
 
 /**
  * API_BASE_URL - Full base URL for REST API endpoints

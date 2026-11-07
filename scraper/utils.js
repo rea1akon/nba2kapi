@@ -17,7 +17,7 @@ import { SCRAPER_OPTIONS, BASE_URL } from './config.js';
  * @returns {Promise<Browser>} Playwright browser instance
  */
 export async function initBrowser() {
-  const browser = await chromium.launch({
+  const opts = {
     headless: SCRAPER_OPTIONS.headless,
     args: [
       '--disable-blink-features=AutomationControlled',
@@ -25,8 +25,23 @@ export async function initBrowser() {
       '--disable-dev-shm-usage',
       '--disable-features=IsolateOrigins,site-per-process',
     ],
-  });
-  return browser;
+  };
+  // 没下载内置 chromium 时退回本机已装的浏览器（Edge/Chrome），
+  // 可用环境变量 PW_CHANNEL 指定，例如 PW_CHANNEL=msedge。
+  const channel = process.env.PW_CHANNEL || '';
+  if (channel) return chromium.launch({ ...opts, channel });
+  try {
+    return await chromium.launch(opts);
+  } catch (e) {
+    for (const ch of ['msedge', 'chrome']) {
+      try {
+        const b = await chromium.launch({ ...opts, channel: ch });
+        console.warn('[scraper] 内置 chromium 缺失，已退回系统浏览器：' + ch);
+        return b;
+      } catch (_) { /* 试下一个 */ }
+    }
+    throw e;
+  }
 }
 
 const STEALTH_USER_AGENT =

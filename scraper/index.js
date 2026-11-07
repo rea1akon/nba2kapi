@@ -6,6 +6,7 @@
  */
 
 import { scrape } from './scraper.js';
+import { pathToFileURL } from 'node:url';
 import { logProgress, logError } from './utils.js';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -159,7 +160,9 @@ async function main() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Windows 下 process.argv[1] 是反斜杠路径，必须转成 file URL 才能比较
+const __isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (__isMain) {
   main();
 }
 
