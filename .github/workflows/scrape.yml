@@ -118,7 +118,12 @@ jobs:
       # dossier/team queries; rebuild them after every scrape so derived stats
       # track the fresh player data. Runs only when the scrape steps succeeded
       # (default step condition), so stats never rebuild over partial data.
+      # 这步用的是 internalAction（cohorts:rebuildAll），需要 deploy key 具备
+      # deployment:functions:runInternalActions 权限。当前的 key 没勾这一项，
+      # 所以它必然会 403 —— 但它只影响网站看板的统计表（cohorts/teams），
+      # players 数据早已写完，API 不受影响。这里设成容错，避免整条流水线标红。
       - name: Rebuild derived stats tables
+        continue-on-error: true
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           # Scheduled runs scrape curr only; rebuild only what was scraped so
