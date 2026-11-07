@@ -58,6 +58,18 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update && sudo apt-get install -y xvfb
 
+      # 快速自查 secret 有没有填错（只打印长度与前缀，不泄露内容）
+      - name: Check deploy key
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          echo "CONVEX_DEPLOY_KEY 长度: ${#CONVEX_DEPLOY_KEY}（正确值应为 79）"
+          case "$CONVEX_DEPLOY_KEY" in
+            "dev:friendly-parrot-83|"*) echo "前缀正常";;
+            "") echo "::error::CONVEX_DEPLOY_KEY 为空，Secret 没配或名字写错"; exit 1;;
+            *) echo "::error::前缀不对（应以 dev:friendly-parrot-83| 开头）——可能 Name/Secret 填反，或复制被截断"; exit 1;;
+          esac
+
       - name: Generate Convex client
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
