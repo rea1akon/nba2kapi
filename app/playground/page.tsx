@@ -2,18 +2,21 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useConvex, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { TopNav } from "@/components/chrome/top-nav";
-import { FooterStrip } from "@/components/chrome/footer-strip";
+import { SiteFooter } from "@/components/chrome/site-footer";
 import { PlayerTable, type TablePlayer } from "@/components/ui/player-table";
 import { ATTRIBUTE_PARAM_ALIASES } from "@/convex/_validation";
+import { filterPlayers } from "@/convex/playerFilters";
+import { usePlayerPool } from "@/lib/player-pool";
 import { ATTRIBUTE_CATEGORIES } from "@/convex/attributeCategories";
 import { ATTRIBUTE_SHORT_LABELS } from "@/lib/attribute-labels";
 import { getAttributeDisplayName } from "@/lib/attribute-normalizer";
-import { API_KEY_STORAGE_KEY } from "@/lib/constants";
+import { API_KEY_STORAGE_KEY, PUBLIC_API_ORIGIN } from "@/lib/constants";
+import { fillApiKey, useStoredApiKey } from "@/lib/stored-api-key";
 import { cn } from "@/lib/utils";
 
 // ---- vocabulary -------------------------------------------------------------
@@ -223,10 +226,10 @@ function sortLabel(sortKey: string): string {
 function Playground() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const convex = useConvex();
   const [q, setQ] = useState<QueryState>(() => stateFromParams(searchParams));
   const [copied, setCopied] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const storedKey = useStoredApiKey();
   const [responseOpen, setResponseOpen] = useState(false);
   const badges = useQuery(api.badges.getBadgeDirectory, {});
 
@@ -274,9 +277,20 @@ function Playground() {
     [q]
   );
 
-  const result = useQuery(api.players.getAllFiltered, queryArgs) as
-    | { players: TablePlayer[]; totalCount: number; hasMore: boolean }
-    | undefined;
+  // The whole pool loads once; every query after that runs in the browser
+  // with the same filter the public API uses.
+  const pool = usePlayerPool("all");
+  const result = useMemo(
+    () =>
+      pool
+        ? (filterPlayers(pool, queryArgs) as {
+            players: TablePlayer[];
+            totalCount: number;
+            hasMore: boolean;
+          })
+        : undefined,
+    [pool, queryArgs]
+  );
 
   // Keep the previous page rendered while the next loads (no flash). The
   // page number is cached WITH the result so stale rows keep their own
@@ -305,19 +319,16 @@ function Playground() {
     }));
 
   const copyUrl = () => {
-    navigator.clipboard.writeText(`https://api.nba2kapi.com${requestUrl}`).then(() => {
+    const curl = `curl -H "X-API-Key: ${fillApiKey("YOUR_API_KEY", storedKey)}" "${PUBLIC_API_ORIGIN}${requestUrl}"`;
+    navigator.clipboard.writeText(curl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     });
   };
 
   const fetchAll = async () => {
-    const full = await convex.query(api.players.getAllFiltered, {
-      ...queryArgs,
-      limit: 2000,
-      offset: 0,
-    });
-    return full.players as TablePlayer[];
+    if (!pool) return [] as TablePlayer[];
+    return filterPlayers(pool, { ...queryArgs, limit: 2000, offset: 0 }).players as TablePlayer[];
   };
 
   const exportCsv = async () => {
@@ -553,7 +564,7 @@ function Playground() {
               onClick={copyUrl}
               className="shrink-0 cursor-pointer border-l border-white/12 px-3.5 py-[9px] font-plex text-[9.5px] text-white/70 transition-colors duration-150 hover:text-white"
             >
-              {copied ? "COPIED ✓" : "COPY"}
+              {copied ? "COPIED ✓" : "COPY CURL"}
             </button>
           </div>
         </div>
@@ -741,7 +752,7 @@ function Playground() {
         </p>
       </div>
 
-      <FooterStrip width="wide" />
+      <SiteFooter width="wide" />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
+import { BadgeIcon } from "@/components/ui/badge-icon";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -112,10 +112,6 @@ export function BadgesGrid({ player, className }: BadgesGridProps) {
 
   const categories = Object.keys(organizedBadges);
 
-  if (categories.length === 0) {
-    return null;
-  }
-
   // Filter badges by selected tier
   const filteredBadges = React.useMemo(() => {
     if (selectedTier === "All") return organizedBadges;
@@ -142,12 +138,21 @@ export function BadgesGrid({ player, className }: BadgesGridProps) {
   }, [organizedBadges, selectedTier]);
 
   // Calculate tier counts
-  const tierCounts = React.useMemo(() => ({
-    HOF: getBadgeCountByTier(player.badges!, "HOF"),
-    Gold: getBadgeCountByTier(player.badges!, "Gold"),
-    Silver: getBadgeCountByTier(player.badges!, "Silver"),
-    Bronze: getBadgeCountByTier(player.badges!, "Bronze"),
-  }), [player.badges]);
+  const tierCounts = React.useMemo(() => {
+    const badges = player.badges;
+    if (!badges) return { HOF: 0, Gold: 0, Silver: 0, Bronze: 0 };
+    return {
+      HOF: getBadgeCountByTier(badges, "HOF"),
+      Gold: getBadgeCountByTier(badges, "Gold"),
+      Silver: getBadgeCountByTier(badges, "Silver"),
+      Bronze: getBadgeCountByTier(badges, "Bronze"),
+    };
+  }, [player.badges]);
+
+  // Early return must come after every hook call so hook order stays stable.
+  if (categories.length === 0) {
+    return null;
+  }
 
   const totalBadges = Object.values(tierCounts).reduce((sum, count) => sum + count, 0);
 
@@ -257,22 +262,19 @@ export function BadgesGrid({ player, className }: BadgesGridProps) {
                               tierColors.border
                             )}
                           >
-                            {badge.imageUrl ? (
-                              // NOT `unoptimized`: 2kratings hot-link-protects its
-                              // images against third-party referers, so a direct
-                              // browser fetch 403s (badges rendered as broken icons
-                              // in prod). Routing through Next's image optimizer —
-                              // same as the player photo — proxies the fetch
-                              // server-side (no browser referer) so it loads. The
-                              // 2kratings host is allowlisted in next.config.ts.
-                              <Image
-                                src={badge.imageUrl}
-                                alt={`${badge.name} ${badge.tier} badge`}
-                                width={20}
-                                height={20}
-                                className="h-5 w-5 shrink-0 object-contain"
-                              />
-                            ) : null}
+                            {/* NOT `unoptimized`: 2kratings hot-link-protects its
+                                images against third-party referers, so a direct
+                                browser fetch 403s (badges rendered as broken icons
+                                in prod). BadgeIcon routes through Next's image
+                                optimizer — same as the player photo — which
+                                proxies the fetch server-side (no browser referer)
+                                so it loads. The 2kratings host is allowlisted in
+                                next.config.ts. */}
+                            <BadgeIcon
+                              src={badge.imageUrl}
+                              alt={`${badge.name} ${badge.tier} badge`}
+                              size={20}
+                            />
                             <span className="font-semibold">{badge.name}</span>
                             <span className="ml-1 opacity-70">· {badge.tier}</span>
                           </Badge>

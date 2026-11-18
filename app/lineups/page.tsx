@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
+import { usePlayerPool } from "@/lib/player-pool";
 import {
   DndContext,
   DragEndEvent,
@@ -18,7 +19,7 @@ import { Search, SlidersHorizontal, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { TopNav } from "@/components/chrome/top-nav";
-import { FooterStrip } from "@/components/chrome/footer-strip";
+import { SiteFooter } from "@/components/chrome/site-footer";
 import { Headshot } from "@/components/ui/headshot";
 import { getRatingClasses } from "@/lib/rating-colors";
 import { getRatingTier } from "@/lib/rating-colors";
@@ -426,7 +427,7 @@ function Whiteboard() {
     fn();
   };
 
-  const players = useQuery(api.players.getPlaygroundPlayers) as PoolPlayer[] | undefined;
+  const players = usePlayerPool("all") as PoolPlayer[] | undefined;
   const selectedSlugs = useMemo(
     () => [...new Set([...yours, ...opps].filter((p): p is PoolPlayer => p !== null).map((p) => p.slug))],
     [yours, opps]
@@ -1206,7 +1207,7 @@ function Whiteboard() {
         </DndContext>
       </div>
 
-      <FooterStrip width="wide" />
+      <SiteFooter width="wide" />
     </div>
   );
 }

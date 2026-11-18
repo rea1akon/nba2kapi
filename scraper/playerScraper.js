@@ -5,7 +5,7 @@
  */
 
 import { SCRAPER_OPTIONS } from './config.js';
-import { normalizeUrl, logProgress, logError, delay, slugify , gotoThroughChallenge } from './utils.js';
+import { normalizeUrl, logProgress, logError, delayInRange, slugify , gotoThroughChallenge } from './utils.js';
 
 /**
  * Scrape detailed player data from individual player page
@@ -147,18 +147,36 @@ export async function scrapePlayerDetails(page, basicPlayer) {
         const value = parseInt(span.textContent.trim());
         if (isNaN(value)) continue;
 
-        // Get attribute name (text after the span)
-        let attributeName = li.textContent.replace(span.textContent, '').trim();
-        // Remove trailing whitespace and help icons
-        attributeName = attributeName.split('\n')[0].trim();
+        // The label is the <li>'s own text. Its sibling spans hold the value
+        // (.attribute-box), the tooltip icon and, for an attribute that moved
+        // in the latest roster update, a change marker (.exponent, "-5" or
+        // "+2"). Reading the whole textContent folds the marker into the
+        // label and yields a mis-cased key ("5 Close Shot" -> "CloseShot").
+        let attributeName = Array.from(li.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (!attributeName) {
+          // Label wrapped in an element: fall back to the full text minus
+          // the value, then drop any leading change marker.
+          attributeName = li.textContent
+            .replace(span.textContent, '')
+            .trim()
+            .split('\n')[0]
+            .replace(/^[+-]?\d+\s*/, '')
+            .trim();
+        }
 
-        // Convert attribute name to camelCase key
+        // Convert attribute name to camelCase key. Leading digits go first so
+        // the lowercase step always lands on a letter.
         const key = attributeName
           .replace(/[^\w\s-]/g, '')
           .replace(/\s+(.)/g, (_, c) => c.toUpperCase())
-          .replace(/^(.)/, (_, c) => c.toLowerCase())
           .replace(/-/g, '')
-          .replace(/^\d+/, ''); // Remove leading digits
+          .replace(/^\d+/, '')
+          .replace(/^(.)/, (_, c) => c.toLowerCase());
 
         // Normalize attribute names to match application expectations
         const attributeNameMap = {
@@ -202,6 +220,19 @@ export async function scrapePlayerDetails(page, basicPlayer) {
       const seenBadgeKeys = new Set();
       const badgeCards = document.querySelectorAll('.badge-card');
 
+      // Tier lives only in the badge image filename, under either of two
+      // 2kratings naming schemes:
+      //   <slug>-<tier>-badge.png      (legacy)
+      //   <NN>-<slug>-<tier>.png       (current)
+      // Match the trailing tier token so both parse.
+      const TIER_BY_TOKEN = {
+        legendary: 'Legendary',
+        hof: 'Hall of Fame',
+        gold: 'Gold',
+        silver: 'Silver',
+        bronze: 'Bronze',
+      };
+
       for (const card of badgeCards) {
         const nameEl = card.querySelector('h4.text-white');
         const categoryEl = card.querySelector('.badge-pill');
@@ -213,16 +244,23 @@ export async function scrapePlayerDetails(page, basicPlayer) {
         if (nameEl && imgEl) {
           const name = nameEl.textContent.trim();
           const category = categoryEl ? categoryEl.textContent.trim() : '';
-          const imgSrc = imgEl.getAttribute('data-src') || imgEl.getAttribute('src') || '';
+          // Lazy-loaded: the real file is in data-src, while src holds a 1x1
+          // placeholder that carries no tier and must never be stored.
+          const imgSrc = imgEl.getAttribute('data-src') || '';
           const description = descEl ? descEl.textContent.trim() : '';
 
-          // Extract tier from image filename
+          // Extract tier from image filename. Legendary badges ship without a
+          // tier suffix (`23-interceptor.png`), so a numbered badge file with
+          // no tier token is Legendary — without this they parse as tierless
+          // and the card is dropped, losing the badge entirely.
+          const file = (imgSrc.split('/').pop() || '').split(/[?#]/)[0];
+          const tierMatch = file.match(/-(legendary|hof|gold|silver|bronze)(?:-badge)?\.png$/i);
           let tier = '';
-          if (/-legendary(-badge)?\.png/i.test(imgSrc)) tier = 'Legendary';
-          else if (/-hof(-badge)?\.png/i.test(imgSrc)) tier = 'Hall of Fame';
-          else if (/-gold(-badge)?\.png/i.test(imgSrc)) tier = 'Gold';
-          else if (/-silver(-badge)?\.png/i.test(imgSrc)) tier = 'Silver';
-          else if (/-bronze(-badge)?\.png/i.test(imgSrc)) tier = 'Bronze';
+          if (tierMatch) {
+            tier = TIER_BY_TOKEN[tierMatch[1].toLowerCase()];
+          } else if (/^\d+-[a-z0-9-]+\.png$/i.test(file)) {
+            tier = 'Legendary';
+          }
 
           if (name && tier) {
             const badgeKey = `${name.toLowerCase().trim()}|${tier.toLowerCase().trim()}`;
@@ -246,6 +284,26 @@ export async function scrapePlayerDetails(page, basicPlayer) {
 
       if (badgeList.length > 0) {
         badges.list = badgeList;
+
+        // The badge list is the source of truth for the counts. Derive any the
+        // count elements did not yield, so a markup change on that block
+        // degrades to a recount rather than to zeros.
+        const TIER_FIELD = {
+          'Legendary': 'legendary',
+          'Hall of Fame': 'hallOfFame',
+          'Gold': 'gold',
+          'Silver': 'silver',
+          'Bronze': 'bronze',
+        };
+        const derived = { total: badgeList.length };
+        for (const field of Object.values(TIER_FIELD)) derived[field] = 0;
+        for (const b of badgeList) {
+          const field = TIER_FIELD[b.tier];
+          if (field) derived[field]++;
+        }
+        for (const [field, count] of Object.entries(derived)) {
+          if (typeof badges[field] !== 'number') badges[field] = count;
+        }
       }
 
       details.badges = badges;
@@ -505,7 +563,7 @@ export async function scrapePlayersDetails(page, basicPlayers, concurrency = 1) 
 
     // Add delay between players to avoid rate limiting
     if (i < total - 1) {
-      await delay(SCRAPER_OPTIONS.delayBetweenPlayers);
+      await delayInRange(SCRAPER_OPTIONS.delayBetweenPlayers);
     }
   }
 

@@ -195,7 +195,7 @@ export default defineSchema({
     playerCount: v.number(),
     sumOverall: v.number(),
     teamNames: v.array(v.string()), // distinct team display names in the era
-    lastUpdated: v.union(v.string(), v.null()), // max players.lastUpdated (ISO)
+    lastUpdated: v.union(v.string(), v.null()), // ISO time of the last rebuild (runs after each scrape)
     updatedAt: v.string(), // ISO timestamp of the rebuild
   }).index("by_teamType", ["teamType"]),
 
@@ -206,6 +206,7 @@ export default defineSchema({
     key: v.string(), // Generated UUID
     email: v.string(),
     name: v.string(), // Developer/project name
+    purpose: v.optional(v.string()), // Free-text "what are you building?" from signup
     userId: v.optional(v.string()), // For future user accounts
 
     // Rate limiting
@@ -418,6 +419,18 @@ export default defineSchema({
     windowStart: v.number(), // Unix timestamp (ms) when window started
   })
     .index("by_ip", ["ip"]),
+
+  /**
+   * Keyless API traffic: requests admitted by checkPublicApiRateLimit, one
+   * row per (UTC day, shard). Each request increments a random shard so
+   * concurrent requests rarely write the same document. Never pruned: the
+   * sum over all rows is the cumulative total banked by metricsRollup.
+   */
+  publicApiDailyCounts: defineTable({
+    date: v.string(), // UTC "YYYY-MM-DD"
+    shard: v.number(), // 0..PUBLIC_COUNT_SHARDS-1
+    count: v.number(),
+  }).index("by_date_shard", ["date", "shard"]),
 
   /**
    * Site stats (pageview analytics for the marketing/app site).

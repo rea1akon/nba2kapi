@@ -5,12 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
+import { usePlayerPool } from "@/lib/player-pool";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { ATTRIBUTE_CATEGORIES } from "@/convex/attributeCategories";
 import { TopNav } from "@/components/chrome/top-nav";
-import { FooterStrip } from "@/components/chrome/footer-strip";
+import { SiteFooter } from "@/components/chrome/site-footer";
 import { Headshot } from "@/components/ui/headshot";
 import { getAttributeDisplayName } from "@/lib/attribute-normalizer";
 import { getRatingClasses } from "@/lib/rating-colors";
@@ -58,7 +59,7 @@ function PlayerPicker({
 }) {
   const [search, setSearch] = useState("");
   const [era, setEra] = useState<"all" | TeamType>("all");
-  const players = useQuery(api.players.getPlaygroundPlayers, {}) as PickerPlayer[] | undefined;
+  const players = usePlayerPool("all") as PickerPlayer[] | undefined;
   const results = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return (players ?? [])
@@ -140,7 +141,7 @@ function Comparison() {
   const sp = useSearchParams();
   const router = useRouter();
   const [pickerSide, setPickerSide] = useState<1 | 2 | null>(null);
-  const playerPool = useQuery(api.players.getPlaygroundPlayers, {}) as PickerPlayer[] | undefined;
+  const playerPool = usePlayerPool("all") as PickerPlayer[] | undefined;
   const slug1 = sp.get("player1");
   const slug2 = sp.get("player2");
   const dossier1 = useQuery(api.dossier.getDossier, slug1 ? { slug: slug1, teamType: parseType(sp.get("type1")), team: sp.get("team1") ?? undefined } : "skip");
@@ -274,7 +275,7 @@ function Comparison() {
           </div>
         )}
       </main>
-      <FooterStrip width="wide" />
+      <SiteFooter width="wide" />
       <PlayerPicker open={pickerSide !== null} onOpenChange={(open) => !open && setPickerSide(null)} onPick={choose} />
     </div>
   );
